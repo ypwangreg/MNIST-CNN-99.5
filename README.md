@@ -1,6 +1,6 @@
 # Goals
 - Create a console version of the C++ CNN for MNIST.
-- Show image and results using ascii only.
+- Show image and results using ascii only [demo, run./test ascii](images/cnn_ascii.png).
 - Served as C/C++ programmer playing ground for CNN.
 - Expand the program to using multi-cores (CPU) and NVIDIA GPU (RTX3070)
 - Explore new ways for the CNN. (current model is slow and chunky. we should have smart ways to do it, like mask, sliding, etc..)

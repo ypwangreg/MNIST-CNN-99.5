@@ -1257,14 +1257,22 @@ void print_digit(int i, bool tall=false) {
 		}
 }
 
-int main(void)
+int main(int argc, char** argv)
 {
-//	read_digit(train_csv);	
-//	rapid_csv(train_csv, false);
-//    print_digit(41199); 
+	if(argc > 1) {
+		string expected = "ascii";
+		if (expected == argv[1]) {
+			rapid_csv(train_csv, false);
+			print_digit(41199); 
+            while(1) sleep(5);
+		} else {
+			cout << "try: " << argv[0] << " ascii" << endl;
+			return -1;
+        }
+	}
+
     load_data();
     init_net();
     train();
-    while(1) sleep(5);
  	return 0;
 }
