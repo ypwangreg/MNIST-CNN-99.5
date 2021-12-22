@@ -831,7 +831,7 @@ void *runBackProp(void *arg){
         s = 0; entropy = 0.0;
         if (isDigits(inited)!=1) trainSize = trainSizeD;
         for (i=0;i<trainSize;i++){
-            //if (i%100==0) printf("x=%d, i=%d\n",j,i);
+            //if (i%100==0) printf(" EPoch x=%d, i=%d\n",j,i);
             if (isDigits(inited)==1) b = backProp(trainSet[i],&ent,j); // LEARN DIGITS
             else b = backProp(i,&ent,0); // LEARN DOTS
             if (b==-1) {
@@ -1264,7 +1264,7 @@ int main(int argc, char** argv)
 		if (expected == argv[1]) {
 			rapid_csv(train_csv, false);
 			print_digit(41199); 
-            while(1) sleep(5);
+			return 0;
 		} else {
 			cout << "try: " << argv[0] << " ascii" << endl;
 			return -1;
@@ -1274,5 +1274,6 @@ int main(int argc, char** argv)
     load_data();
     init_net();
     train();
+    while(1) sleep(5);
  	return 0;
 }
