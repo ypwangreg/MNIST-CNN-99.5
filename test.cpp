@@ -214,15 +214,15 @@ unsigned long fsize(const char* file) {
 
 }
 
-#define DFUNC() { cout << __FUNCTION__ << endl; }
+#define DFUNC(x) { if(x)cout << __FUNCTION__ << endl; }
 // DISPLAY PROGRESS
-void displayConfusion(int (*confusion)[10]) DFUNC()
-void displayCDigits(int x,int y) DFUNC()
-void displayEntropy(float *ents, int entSize, float *ents2, int display) DFUNC()
-void displayAccuracy(float *accs, int accSize,float *accs2, int display) DFUNC()
+void displayConfusion(int (*confusion)[10]) DFUNC(false)
+void displayCDigits(int x,int y) DFUNC(true)
+void displayEntropy(float *ents, int entSize, float *ents2, int display) DFUNC(false)
+void displayAccuracy(float *accs, int accSize,float *accs2, int display) DFUNC(false)
 // DISPLAY DOTS
-void displayClassify(int dd) DFUNC()
-void displayClassify3D() DFUNC()
+void displayClassify(int dd) DFUNC(true)
+void displayClassify3D() DFUNC(true)
 
 #define D(x) cout << #x <<":" << x << endl
 
@@ -826,12 +826,15 @@ void *runBackProp(void *arg){
     int j,j2,k,s,s2,b;
     float entropy,entropy2,ent;
     time(&start);
+	setbuf(stdout, NULL); // make sure no buffer on stdout
     // PERFORM X TRAINING EPOCHS
     for (j=0;j<x;j++){
-        s = 0; entropy = 0.0;
+        s = 0; entropy = 0.0; int skip=0;
         if (isDigits(inited)!=1) trainSize = trainSizeD;
         for (i=0;i<trainSize;i++){
             //if (i%100==0) printf(" EPoch x=%d, i=%d\n",j,i);
+			if ( i % (trainSize/100) == 0) printf(".");
+			if (rand() % 100 < 95) {skip++;continue;} // simulate mini-batch
             if (isDigits(inited)==1) b = backProp(trainSet[i],&ent,j); // LEARN DIGITS
             else b = backProp(i,&ent,0); // LEARN DOTS
             if (b==-1) {
@@ -847,6 +850,7 @@ void *runBackProp(void *arg){
                 pthread_exit(NULL);
             }
         }
+		printf("> training done\n");//printf(" skip: %d/%d\n", skip, trainSize);
         entropy = entropy / trainSize;
         s2 = 0; entropy2 = 0.0;
         for (i=0;i<10;i++) for (k=0;k<10;k++) confusion[i][k]=0;
@@ -873,7 +877,9 @@ void *runBackProp(void *arg){
                 webwriteline("learning stopped early");
                 pthread_exit(NULL);
             }
+			if ( i % (testSize/100) == 0) printf(".");
         }
+		printf("> validation done\n");
         entropy2 = entropy2 / testSize;
         if (j==0 || (j+1)%y==0){
             ents[entSize++] = entropy;

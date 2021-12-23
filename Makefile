@@ -1,7 +1,9 @@
 all: test train.csv test.csv
 
-test: test.o 
-	g++ -g -o $@ $<  -lpthread
+%.o: %.cpp
+	g++ -g -c $<
+test: test.o
+	g++ -o $@ $<  -lpthread
 %.csv: %.csv.zip
 	unzip $<
 	touch $@
