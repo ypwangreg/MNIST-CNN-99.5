@@ -8,6 +8,8 @@
 # First Run 2021.12.22
 i=1 train=92.68 ent=0.2324,valid=96.05 ent=0.0582 (422sec) lr=1.0e-02 ![firstrun.png](images/firstrun.png)
 
+# Second run 2021.12.27
+784x4x10, (785x4+5x10 = 3190) 86.5% in 15secs with 4K parms instead of ~2M parms. [secondrun.png](images/secondrun.png)
 
 
 # Ref
