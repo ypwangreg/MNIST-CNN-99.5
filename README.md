@@ -11,7 +11,11 @@ i=1 train=92.68 ent=0.2324,valid=96.05 ent=0.0582 (422sec) lr=1.0e-02 ![firstrun
 # Second run 2021.12.27
 784x4x10, (785x4+5x10 = 3190) 86.5% in 15secs with 4K parms instead of ~2M parms. [secondrun.png](images/secondrun.png)
 
+# Third run with libvncserver to display change on weights.
+Using libvncserver to visualize weights changes
+sudo apt install libvncserver-dev
+
 
 # Ref
 1. [MNIST-CNN-99.5] (https://github.com/cdeotte/MNIST-CNN-99.5) Very good and detailed implementation using C. 
-
+2. [libvncserver] (https://packages.ubuntu.com/source/bionic/libvncserver) Used for visualization.
