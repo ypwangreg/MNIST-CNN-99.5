@@ -1,7 +1,7 @@
 #include <rfb/rfb.h>
 
 int width=1600;
-int height=900;
+int height=1000;
 int bpp= 4;
 
 #define WHITE 0xFFFFFFFF

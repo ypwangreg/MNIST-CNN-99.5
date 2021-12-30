@@ -27,3 +27,5 @@ vncsrv: vncsrv.cpp
 	g++ -DTEST_VNCSRV -g -o $@ $< -lvncserver 
 vncsrv1: vncsrv1.o
 	g++ -o $@ $< -lvncserver 
+tests1: tests1.o
+	g++ -o $@ $<  -lpthread
