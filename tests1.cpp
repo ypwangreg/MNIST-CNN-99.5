@@ -56,7 +56,6 @@ void initArch(char *str, int x);
 // NEURAL-NET
 int isDigits(int init);
 void randomizeTrainSet();
-void dataAugment(int img, int r, float sc, float dx, float dy, int p, int hiRes, int loRes, int t);
 void *runBackProp(void *arg);
 int backProp(int x,float *ent, int ep);
 int forwardProp(int x, int dp, int train, int lay);
@@ -532,15 +531,12 @@ void initNet(int t){
                  weights[i] = (float*)malloc(layerSizes[i] * (layerSizes[i-1]*layerChan[i-1]+1) * sizeof(float));
 				 // ANDY 
 /*
-weights[1] 0(layersizes[i]) * (0*1+1) (layerSizes[i-1]*layerChan[i-1]+1) = 0
-weights[2] 0(layersizes[i]) * (0*1+1) (layerSizes[i-1]*layerChan[i-1]+1) = 0
-weights[3] 0(layersizes[i]) * (0*1+1) (layerSizes[i-1]*layerChan[i-1]+1) = 0
-weights[4] 0(layersizes[i]) * (0*1+1) (layerSizes[i-1]*layerChan[i-1]+1) = 0
-weights[5] 0(layersizes[i]) * (0*1+1) (layerSizes[i-1]*layerChan[i-1]+1) = 0
-weights[6] 784(layersizes[i]) * (0*1+1) (layerSizes[i-1]*layerChan[i-1]+1) = 784
-weights[7] 1000(layersizes[i]) * (784*1+1) (layerSizes[i-1]*layerChan[i-1]+1) = 785000
-weights[8] 1000(layersizes[i]) * (1000*1+1) (layerSizes[i-1]*layerChan[i-1]+1) = 1001000
-weights[9] 10(layersizes[i]) * (1000*1+1) (layerSizes[i-1]*layerChan[i-1]+1) = 10010
+weights[7] 784(layersizes[i]) * (0*1+1) (layerSizes[i-1]*layerChan[i-1]+1) = 784
+weights[8] 4(layersizes[i]) * (784*1+1) (layerSizes[i-1]*layerChan[i-1]+1) = 3140
+weights[9] 10(layersizes[i]) * (4*1+1) (layerSizes[i-1]*layerChan[i-1]+1) = 50
+Initialized NN=4 with Xavier init scaled=1.414
+Architecture (0-0-0-0-0-0-0-784-4-10)
+Beginning 1000 epochs with lr=0.010000 and decay=0.950000
 */
 				 printf("weights[%d] %d(layersizes[i]) * (%d*%d+1) (layerSizes[i-1]*layerChan[i-1]+1) = %d\n", i, layerSizes[i], layerSizes[i-1], layerChan[i-1], layerSizes[i] * (layerSizes[i-1]*layerChan[i-1]+1));
              }else if (layerType[i]==1) // CONVOLUTION
@@ -559,20 +555,7 @@ weights[9] 10(layersizes[i]) * (1000*1+1) (layerSizes[i-1]*layerChan[i-1]+1) = 1
               if (layerType[j]==0){ // FC LAYER
                 if (layerType[j+1]==0)
                     scale = 2.0 * sqrt(6.0/ ( layerSizes[j-1]*layerChan[j-1] + layerSizes[j] ));
-                else if (layerType[j+1]==1) // impossible
-                    scale = 2.0 * sqrt(6.0/ ( layerSizes[j-1]*layerChan[j-1] + layerConvStep[j+1] ));
-                else if (layerType[j+1]>=2) // impossible
-                    scale = 2.0 * sqrt(6.0/ ( layerSizes[j-1]*layerChan[j-1] + layerSizes[j-1]*layerChan[j-1] ));
               }
-              else if (layerType[j]==1){ // CONV LAYER
-                if (layerType[j+1]==0)
-                    scale = 2.0 * sqrt(6.0/ ( layerConvStep[j] + layerSizes[j]*layerChan[j] ));
-                else if (layerType[j+1]==1)
-                    scale = 2.0 * sqrt(6.0/ ( layerConvStep[j] + layerConvStep[j+1] ));
-                else if (layerType[j+1]>=2)
-                    scale = 2.0 * sqrt(6.0/ ( layerConvStep[j] + layerConvStep[j] ));
-              }
-              //if (activation==1 && j!=9) scale *= sqrt(2.0); // DO I WANT THIS? INPUT ISN'T MEAN=0
               //printf("Init layer %d: LS=%d LC=%d LCS=%d Scale=%f\n",j,layerSizes[j],layerChan[j],layerConvStep[j],scale);
               if (j!=9) scale *= weightScale;
          }
@@ -581,26 +564,10 @@ weights[9] 10(layersizes[i]) * (1000*1+1) (layerSizes[i-1]*layerChan[i-1]+1) = 1
             for (i=0;i<layerSizes[j] * (layerSizes[j-1]*layerChan[j-1]+1);i++)
                 weights[j][i] = scale * ( (float)rand()/(float)RAND_MAX - 0.5 );
                 //weights[j][i] = 0.1;
-			int wlen = layerSizes[j] * (layerSizes[j-1]*layerChan[j-1]+1);
-			printf("init weights[%d][x] total %d*(%d*%d+1) (layerSizes[j]*(layerSizes[j-1]*layerChan[j-1]+1)) = x:%d weights[%d][0]=%f, weights[%d][%d]=%f\n", j, layerSizes[j], layerSizes[j-1], layerChan[j-1], wlen, j, weights[j][0], j, wlen-1, weights[j][wlen-1]);
-			int blen = layerSizes[j];
-			int bias_f = (layerSizes[j-1]*layerChan[j-1]+1)*(0+1)-1;
-			int bias_l = (layerSizes[j-1]*layerChan[j-1]+1)*(blen-1+1)-1;
-			printf("before: init bias[%d][%d ~ %d] = %f ~ %f\n",j, bias_f, bias_l, weights[j][bias_f], weights[j][bias_l]);
-             for (i=0;i<layerSizes[j];i++)  { // set biases to zero
-                weights[j][(layerSizes[j-1]*layerChan[j-1]+1)*(i+1)-1] = 0.0;  // ANDY: it doesnot seems to matter to use initial random value above.. coult be commented out
-			 }
-			 printf("after: init bias[%d][%d ~ %d] step: %d = %f ~ %f\n",j, bias_f, bias_l, (layerSizes[j-1]*layerChan[j-1]+1), weights[j][bias_f], weights[j][bias_l]);
 		  }
          }
-         else if (layerType[j]==1){ // CONVOLUTION
-            for (i=0;i<(layerConvStep[j]+1) * layerChan[j];i++)
-                weights[j][i] = scale * ( (float)rand()/(float)RAND_MAX - 0.5 );
-            for (i=0;i<layerChan[j];i++) // set conv biases to zero
-                weights[j][(layerConvStep[j]+1)*(i+1)-1] = 0.0;
-         }
      }
-
+	
      inited = t;
      if (isDigits(inited)!=1) {
          showCon = 0;
@@ -757,49 +724,6 @@ void train() {
 /**********************************************************************/
 /*      NEURAL NETWORK                                                */
 /**********************************************************************/
-void dataAugment(int img, int r, float sc, float dx, float dy, int p, int hiRes, int loRes, int t){
-    // AUGMENT AN IMAGE AND STORE RESULT IN TRAIN IMAGES ARRAY
-    int i,j,x2,y2;
-    float x,y;
-    float pi = 3.1415926;
-    float c = cos(pi * r/180.0);
-    float s = sin(pi * r/180.0);
-    float (*trainImagesB)[784] = trainImages;
-    float (*trainImages2B)[196] = trainImages2;
-    if (t==0){
-        trainImagesB = testImages;
-        trainImages2B = testImages2;
-    }
-    if (loRes==1){
-    for (i=0;i<14;i++)
-    for (j=0;j<14;j++){
-        x = (j - 6.5)/sc - dx/2.0;
-        y = (i - 6.5)/sc + dy/2.0;
-        x2 = (int)round((c*x-s*y)+6.5);
-        y2 = (int)round((s*x+c*y)+6.5);
-        if (y2>=0 && y2<14 && x2>=0 && x2<14)
-            trainImages2[trainSizeE][i*14+j] = trainImages2B[img][y2*14+x2];
-        else trainImages2[trainSizeE][i*14+j] = -imgBias;
-    }}
-    if (hiRes==1){
-    for (i=0;i<28;i++)
-    for (j=0;j<28;j++){
-        x = (j - 13.5)/sc - dx;
-        y = (i - 13.5)/sc + dy;
-        x2 = (int)round((c*x-s*y)+13.5);
-        y2 = (int)round((s*x+c*y)+13.5);
-        if (y2>=0 && y2<28 && x2>=0 && x2<28)
-            trainImages[trainSizeE][i*28+j] = trainImagesB[img][y2*28+x2];
-        else trainImages[trainSizeE][i*28+j] = -imgBias;
-    }}
-    if (p>=3 && p<=5) displayDigit(trainSizeE,1,p,0,0,1,0,2);
-    trainDigits[trainSizeE] = trainDigits[img];
-    if (t==0) trainDigits[trainSizeE] = -1;
-}
-
-/**********************************************************************/
-/*      NEURAL NETWORK                                                */
-/**********************************************************************/
 void *runBackProp(void *arg){
     // TRAINS NEURAL NETWORK WITH TRAINING DATA
     time_t start,stop;
@@ -807,36 +731,12 @@ void *runBackProp(void *arg){
     char buffer[80];
     int i, x = pass[0], y = pass[1], z = pass[2];
     int p, confusion[10][10]={{0}};
-    if (layers[0]==NULL){
-        initNet(1);
-        if (z==1) {
-            sprintf(buffer,"Assuming NN=1 with Xavier init scaled=%.3f",weightScale);
-            webwriteline(buffer);
-            ipSet("net",1);
-            webupdate(ip,rp,sp);
-        }
-        int len = sprintf(buffer,"Architecture (%d",layerSizes[0]);
-        for (i=1;i<10;i++) len += sprintf(buffer+len,"-%d",layerSizes[i]);
-        sprintf(buffer+len,")");
-        if (z==1) webwriteline(buffer);
-    }
     // LEARN DIGITS
     int trainSize = trainSetSize;
     int testSize = validSetSize;
     if (isDigits(inited)==1) {
         websetmode(2);
         showCon=1;
-    }
-    else { // LEARN DOTS
-        trainSize = trainSizeD;
-        testSize = 0;
-        websetmode(dotsMode);
-    }
-    if (trainSize==0){
-        if (isDigits(inited)==1) webwriteline("Load images first. Click load.");
-        else webwriteline("Create training dots first. Click dots inside pane to the right.");
-        working=0; websetmode(2);
-        return NULL;
     }
     // ALLOCATE MEMORY FOR ENTORPY AND ACCURACY HISTORY
     if (ents!=NULL){
@@ -880,7 +780,10 @@ void *runBackProp(void *arg){
         s2 = 0; entropy2 = 0.0;
         for (i=0;i<10;i++) for (k=0;k<10;k++) confusion[i][k]=0;
         for (i=0;i<10;i++) for (j2=0;j2<10;j2++) for (k=0;k<maxCD;k++) cDigits[i][j2][k]= -1;
-		if (j%5 != 0) continue; // validate every 5 epoch? ANDY about 65 trains reach 97.50% and final is 1000 trains at 97.75%
+		if (j%5 != 0) continue; // validate every 5 epoch? ========================================> go back to  training
+		/***********************
+		 *  Validation
+		 **********************/
         for (i=0;i<testSize;i++){
             p = forwardProp(validSet[i],0,1,0);
             if (p==-1) {
@@ -960,21 +863,6 @@ int backProp(int x, float *ent, int ep){  // ANDY
     float der=1.0, xs=0.0, ys=0.0, extra=0.0, sc=1.0, sum;
     int dc, a, a2, i2, j2, i3, j3, pmax, imax, jmax;
     int temp, temp2;
-    // DATA AUGMENTATION
-    if (augmentRatio>0.0 && isDigits(inited)==1)
-    if ( (float)rand()/(float)RAND_MAX <= augmentRatio ){
-        if (augmentAngle>0.0)
-            rot = (int)(2.0 * augmentAngle * (float)rand()/(float)RAND_MAX - augmentAngle);
-        if (augmentDx>0.0)
-            xs = (2.0 * augmentDx * (float)rand()/(float)RAND_MAX - augmentDx);
-        if (augmentDy>0.0)
-            ys = (2.0 * augmentDy * (float)rand()/(float)RAND_MAX - augmentDy);
-        if (augmentScale>0.0)
-            sc = 1.0 + 2.0 * augmentScale * (float)rand()/(float)RAND_MAX - augmentScale;
-        if (layerSizes[10-numLayers]==784){hres=1;lres=0;}
-        dataAugment(x,rot,sc,xs,ys,-1,hres,lres,1);
-        x = trainSizeE;
-    }
     // FORWARD PROP FIRST
     int p = forwardProp(x,1,1,0);   // p is the predict value
     if (p==-1) return -1; // GRADIENT EXPLODED
@@ -1009,54 +897,6 @@ int backProp(int x, float *ent, int ep){  // ANDY
             }
         }
     }
-    else if (layerType[k+1]==1){ // FEEDS INTO CONVOLUTION
-        for (i=0;i<layerSizes[k]*layerChan[k];i++) errors[k][i] = 0.0;
-        dc = 0; if (layerPad[k+1]==1) dc = layerConv[k+1]/2;
-        for (a=0;a<layerChan[k+1];a++)
-        for (i=0;i<layerWidth[k+1];i++)
-        for (j=0;j<layerWidth[k+1];j++){
-            temp = a*(layerConvStep[k+1]+1);
-            temp2 = a*layerSizes[k+1] + i*layerWidth[k+1] + j;
-            for (a2=0;a2<layerChan[k];a2++)
-            for (i2=0;i2<layerConv[k+1];i2++)
-            for (j2=0;j2<layerConv[k+1];j2++){
-                i3 = i + i2 - dc;
-                j3 = j + j2 - dc;
-                if (activation==2) der = (layers[k][a2*layerSizes[k] + i3*layerWidth[k] + j3]+1)*(1-layers[k][a2*layerSizes[k] + i3*layerWidth[k] + j3]); //TanH
-                if (activation==0 || activation==2 || layers[k][a2*layerSizes[k] + i3*layerWidth[k] + j3]>0) // this is ReLU derivative
-                if (i3>=0 && i3<layerWidth[k] && j3>=0 && j3<layerWidth[k]) // padding
-                errors[k][a2*layerSizes[k] + i3*layerWidth[k] + j3] +=
-                    weights[k+1][temp + a2*layerConvStep2[k+1] + i2*layerConv[k+1] +j2]
-                    * errors[k+1][temp2] * der;
-            }
-        }
-        if (dropOutRatio>0.0 && DOconv==1) // dropout
-        for (i=0;i<layerSizes[k]*layerChan[k];i++) errors[k][i] = errors[k][i] * dropOut[k][i];
-    }
-    else if (layerType[k+1]>=2){ // FEEDS INTO POOLING (2=max, 3=avg)
-        for (i=0;i<layerSizes[k]*layerChan[k];i++) errors[k][i] = 0.0;
-        for (a=0;a<layerChan[k];a++)
-        for (i=0;i<layerWidth[k+1];i++)
-        for (j=0;j<layerWidth[k+1];j++){
-            pmax = -1e6;
-            if (layerType[k+1]==3)
-                temp = errors[k+1][a*layerSizes[k+1] + i*layerWidth[k+1] + j] / layerConvStep2[k+1];
-            for (i2=0;i2<layerConv[k+1];i2++)
-            for (j2=0;j2<layerConv[k+1];j2++){
-                if (layerType[k+1]==3) errors[k][a*layerSizes[k] + (i*layerStride[k+1]+i2)*layerWidth[k] + j*layerStride[k+1]+j2] = temp;
-                else if (layers[k][a*layerSizes[k] + (i*layerStride[k+1]+i2)*layerWidth[k] + j*layerStride[k+1]+j2]>pmax){
-                    pmax = layers[k][a*layerSizes[k] + (i*layerStride[k+1]+i2)*layerWidth[k] + j*layerStride[k+1]+j2];
-                    imax = i2;
-                    jmax = j2;
-                }
-            }
-            if (layerType[k+1]==2)
-            errors[k][a*layerSizes[k] + (i*layerStride[k+1]+imax)*layerWidth[k] + j*layerStride[k+1]+jmax] =
-                errors[k+1][a*layerSizes[k+1] + i*layerWidth[k+1] + j];
-        }
-        if (dropOutRatio>0.0 && DOpool==1) //dropout
-        for (i=0;i<layerSizes[k]*layerChan[k];i++) errors[k][i] = errors[k][i] * dropOut[k][i];
-    }
     }
     
     // UPDATE WEIGHTS - GRADIENT DESCENT
@@ -1069,26 +909,6 @@ int backProp(int x, float *ent, int ep){  // ANDY
                 weights[k][temp+j] += errors[k][i]*layers[k-1][j];   // adjust the weights by Delta_E.. enhance the correct weights on the path and decrease the weights on others..
         }
     }
-    else if (layerType[k]==1){ // CONVOLUTION LAYER
-        dc = 0; if (layerPad[k]==1) dc = layerConv[k]/2;
-        for (a=0;a<layerChan[k];a++)
-        for (i=0;i<layerWidth[k];i++)
-        for (j=0;j<layerWidth[k];j++){
-            temp = a*(layerConvStep[k]+1);
-            temp2 = a*layerSizes[k] + i*layerWidth[k] + j;
-            for (a2=0;a2<layerChan[k-1];a2++)
-            for (i2=0;i2<layerConv[k];i2++)
-            for (j2=0;j2<layerConv[k];j2++){
-                i3 = i + i2 - dc;
-                j3 = j + j2 - dc;
-                if (i3>=0 && i3<layerWidth[k-1] && j3>=0 && j3<layerWidth[k-1])
-                weights[k][temp + a2*layerConvStep2[k] + i2*layerConv[k] + j2] +=
-                    errors[k][temp2] * layers[k-1][a2*layerSizes[k-1] + i3*layerWidth[k-1] + j3];
-            }
-            weights[k][(a+1)*(layerConvStep[k]+1)-1] += errors[k][a*layerSizes[k] + i*layerWidth[k] + j];
-        }
-    }
-    
     }
     
     return r;
@@ -1105,20 +925,10 @@ int forwardProp(int x, int dp, int train, int lay){ // ANDY
     float sum, esum, max, rnd, pmax;
     int temp, temp2;
     // INPUT LAYER
-    if (isDigits(inited)==1 && layerSizes[10-numLayers]==196){
-        if (train==1) for (i=0;i<196;i++) layers[10-numLayers][i] = trainImages2[x][i];
-        else for (i=0;i<196;i++) layers[10-numLayers][i] = testImages2[x][i];
-    }
-    else if (isDigits(inited)==1 && layerSizes[10-numLayers]==784){
+    if (isDigits(inited)==1 && layerSizes[10-numLayers]==784){
         if (train==1) for (i=0;i<784;i++) layers[10-numLayers][i] = trainImages[x][i];   // input layer 28x28-> 784
         else for (i=0;i<784;i++) layers[10-numLayers][i] = testImages[x][i];
     }
-    else if (isDigits(inited)==1 && layerSizes[10-numLayers]==trainColumns){
-        if (train==1) for (i=0;i<trainColumns;i++) layers[10-numLayers][i] = trainImages[x][i];
-        else for (i=0;i<trainColumns;i++) layers[10-numLayers][i] = testImages[x][i];
-    }
-    else if (layerSizes[10-numLayers]==2)
-        for (i=0;i<2;i++) layers[10-numLayers][i] = trainDots[x][i];
     
     // HIDDEN LAYERS - k=input+1,k<output;k++ 
     for (k=11-numLayers;k<9;k++){
@@ -1148,57 +958,8 @@ int forwardProp(int x, int dp, int train, int lay){ // ANDY
         }
         else layers[k][i] = 0.0;
     }
-    else if (layerType[k]==1){ // CONVOLUTION LAYER
-        dc = 0; if (layerPad[k]==1) dc = layerConv[k]/2;
-        for (a=0;a<layerChan[k];a++)
-        for (i=0;i<layerWidth[k];i++)
-        for (j=0;j<layerWidth[k];j++){
-            temp = a*(layerConvStep[k]+1);
-            sum = 0.0;
-            for (a2=0;a2<layerChan[k-1];a2++)
-            for (i2=0;i2<layerConv[k];i2++)
-            for (j2=0;j2<layerConv[k];j2++){
-                i3 = i + i2 - dc;
-                j3 = j + j2 - dc;
-                if (i3>=0 && i3<layerWidth[k-1] && j3>=0 && j3<layerWidth[k-1])
-                sum += layers[k-1][a2*layerSizes[k-1] + i3*layerWidth[k-1] + j3] * weights[k][temp + a2*layerConvStep2[k] + i2*layerConv[k] + j2];
-                else sum -= imgBias * weights[k][temp + a2*layerConvStep2[k] + i2*layerConv[k] + j2];
-            }
-            sum += weights[k][(a+1)*(layerConvStep[k]+1)-1];
-            if (activation==0) layers[k][a*layerSizes[k] + i*layerWidth[k] + j] = sum;
-            else if (activation==1) layers[k][a*layerSizes[k] + i*layerWidth[k] + j] = ReLU(sum);
-            else layers[k][a*layerSizes[k] + i*layerWidth[k] + j] = TanH(sum);
-        }
-        // APPLY DROPOUT
-        if (dropOutRatio>0.0 && DOconv==1)
-        for (i=0;i<layerSizes[k]*layerChan[k];i++){
-            if (dp==0) layers[k][i] = layers[k][i]  * (1-dropOutRatio);
-            else if (dp==1) layers[k][i] = layers[k][i]  * dropOut[k][i];
-        }
-    }
-    else if (layerType[k]>=2) // POOLING LAYER (2=max, 3=avg)
-        for (a=0;a<layerChan[k];a++)
-        for (i=0;i<layerWidth[k];i++)
-        for (j=0;j<layerWidth[k];j++){
-            sum = 0.0;
-            pmax = -1e6;
-            for (i2=0;i2<layerConv[k];i2++)
-            for (j2=0;j2<layerConv[k];j2++){
-                if (layerType[k]==3) sum += layers[k-1][a*layerSizes[k-1] + (i*layerStride[k]+i2)*layerWidth[k-1] + j*layerStride[k]+j2];
-                else if (layers[k-1][a*layerSizes[k-1] + (i*layerStride[k]+i2)*layerWidth[k-1] + j*layerStride[k]+j2]>pmax)
-                    pmax = layers[k-1][a*layerSizes[k-1] + (i*layerStride[k]+i2)*layerWidth[k-1] + j*layerStride[k]+j2];
-            }
-            if (layerType[k]==3) layers[k][a*layerSizes[k] + i*layerWidth[k] + j] = sum / layerConvStep2[k];
-            else layers[k][a*layerSizes[k] + i*layerWidth[k] + j] = pmax;
-        }
-        // APPLY DROPOUT
-        if (dropOutRatio>0.0 && DOpool==1)
-        for (i=0;i<layerSizes[k]*layerChan[k];i++){
-            if (dp==0) layers[k][i] = layers[k][i]  * (1-dropOutRatio);
-            else if (dp==1) layers[k][i] = layers[k][i]  * dropOut[k][i];
-        }
-    }
-    
+	}
+
     // OUTPUT LAYER - SOFTMAX ACTIVATION
     esum = 0.0;
     for (i=0;i<layerSizes[9];i++){
@@ -1242,76 +1003,8 @@ float TanH(float x){
 }
 
 
-
-void read_digit(string file)
-{
-	ifstream f;  f.open(file);
-    getline(f, head_line);
-    while(getline(f, line)) {
-		cout << line << endl;
-		digit_i ++;
-		if (digit_i == 2)break;
-    } 
-}
-
-void rapid_csv(string file, bool tall=false)
-{
-    rapidcsv::Document doc(file);
-	cout << "column: " << doc.GetColumnCount() << " row: " <<  doc.GetRowCount() << endl;
-	for (int i = 0; i < doc.GetRowCount(); i ++) {
-		vector<int> row = doc.GetRow<int>(i);
-
-		bool printout = i % 1000 == 0; // debug
-		digit_l[i] = row[0];
-        char strbuf[3] = {0x20,0x30,0}; strbuf[1]+=row[0]; // convert row[0] to " #".
-
-		for (int j = 0; j < 28; j++) { 
-			for (int k = 0; k < 28; k++) {
-				if (tall) { 
-				  char c = (digit_a[i][j][k] = row[j*28+k+1]) ? '*': ' ';
-				  if(printout)cout << (char)((j==0&&k==0)? row[0]+0x30 : c);
-				} else {
-				  string c = (digit_a[i][j][k] = row[j*28+k+1]) ? "**": "  ";
-				  if(printout)cout << ((j==0&&k==0)? string(strbuf) : c);
-			   }
-			}
-			if(printout)cout << endl;
-		}
-		//if(i == 100)break;	
-	}
-}
-
-void print_digit(int i, bool tall=false) {
-        char strbuf[3] = {0x20,0x30,0}; strbuf[1]+=digit_l[i]; // convert label to " #".
-
-		for (int j = 0; j < 28; j++) { 
-			for (int k = 0; k < 28; k++) {
-				if (tall) { 
-				  char c = (digit_a[i][j][k]) ? '*': ' ';
-				  cout << (char)((j==0&&k==0)? digit_l[i]+0x30 : c);
-				} else {
-				  string c = (digit_a[i][j][k]) ? "**": "  ";
-				  cout << ((j==0&&k==0)? string(strbuf) : c);
-			   }
-			}
-			cout << "|" << endl;
-		}
-}
-
 int main(int argc, char** argv)
 {
-	if(argc > 1) {
-		string expected = "ascii";
-		if (expected == argv[1]) {
-			rapid_csv(train_csv, false);
-			print_digit(41199); 
-			return 0;
-		} else {
-			cout << "try: " << argv[0] << " ascii" << endl;
-			return -1;
-        }
-	}
-
     load_data();
     init_net();
     train();
