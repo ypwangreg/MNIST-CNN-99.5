@@ -121,7 +121,7 @@ char nets[8][10][20] =
            {"","784","C3:10","C3:10","P2","C3:20","C3:20","P2","128","10"},
 		   //layer-9: 4-86.5, 5-89.5, 6-90.85, 7-90.75, 8-92.50, 9-92.65, 10-93, 15-94.64, 30-96, 48-96.67, 72-96.93, 
 		   //98-97.27, 127-97.37, 256-97.46, 512-97.55
-           {"","","","","","","","784","4","10"}, 
+           {"","","","","","","","784","1000","10"}, 
            // debug nets below
            {"","","","","","784","C5:6","P2","50","10"},
            {"","","","","","","","196","100","10"},
@@ -207,7 +207,7 @@ void websetmode(int mode) {
 unsigned long fsize(const char* file) {
     /* returns file size */
 
-    FILE * f = fopen(file, "r");
+	FILE * f = fopen(file, "r");
     fseek(f, 0, SEEK_END);
     unsigned long len = (unsigned long)ftell(f);
     fclose(f);
@@ -216,6 +216,7 @@ unsigned long fsize(const char* file) {
 }
 
 #define DFUNC(x) { if(x)cout << __FUNCTION__ << endl; }
+
 // DISPLAY PROGRESS
 void displayConfusion(int (*confusion)[10]) DFUNC(false)
 void displayCDigits(int x,int y) DFUNC(true)
@@ -561,9 +562,11 @@ Beginning 1000 epochs with lr=0.010000 and decay=0.950000
          }
          if (layerType[j]==0){ // FULLY CONNECTED
 		  if(layerSizes[j]) {
+			printf("scale[%d] %f\n", j, scale);
             for (i=0;i<layerSizes[j] * (layerSizes[j-1]*layerChan[j-1]+1);i++)
                 weights[j][i] = scale * ( (float)rand()/(float)RAND_MAX - 0.5 );
-                //weights[j][i] = 0.1;
+                //weights[j][i] = scale * ( (float)rand()/(float)RAND_MAX - 0.5 );
+               // weights[j][i] = -0.01;
 		  }
          }
      }
@@ -698,7 +701,7 @@ void load_data() {
             }
 }
 
-void train() {
+void train_and_validate() {
             an = 0.01;//rpGet("learn");
             scaleMin = 0.9; //rpGet("minY");
             scaleMax = 1.0; //rpGet("maxY");
@@ -724,6 +727,12 @@ void train() {
 /**********************************************************************/
 /*      NEURAL NETWORK                                                */
 /**********************************************************************/
+int ftime_cnt = 0;
+int ftime_all = 0;
+int btime0_all = 0;
+int btime1_all = 0;
+int btime2_all = 0;
+int btime_cnt = 0;
 void *runBackProp(void *arg){
     // TRAINS NEURAL NETWORK WITH TRAINING DATA
     time_t start,stop;
@@ -776,6 +785,8 @@ void *runBackProp(void *arg){
             }
         }
 		printf("> training done\n");//printf(" skip: %d/%d\n", skip, trainSize);
+		printf("forward: %d %d  backward: %d %d %d %d\n", ftime_cnt, ftime_all, btime_cnt, btime0_all, btime1_all, btime2_all);
+		ftime_cnt = ftime_all = btime_cnt = btime0_all = btime1_all = btime2_all = 0;
         entropy = entropy / trainSize;
         s2 = 0; entropy2 = 0.0;
         for (i=0;i<10;i++) for (k=0;k<10;k++) confusion[i][k]=0;
@@ -809,6 +820,7 @@ void *runBackProp(void *arg){
 			if ( i % (testSize/100) == 0) printf(".");
         }
 		printf("> validation done\n");
+		printf("forward: %d %d \n", ftime_cnt, ftime_all); ftime_cnt = ftime_all = 0;
         entropy2 = entropy2 / testSize;
         if (j==0 || (j+1)%y==0){
             ents[entSize++] = entropy;
@@ -863,8 +875,11 @@ int backProp(int x, float *ent, int ep){  // ANDY
     float der=1.0, xs=0.0, ys=0.0, extra=0.0, sc=1.0, sum;
     int dc, a, a2, i2, j2, i3, j3, pmax, imax, jmax;
     int temp, temp2;
+    time_t start,stop;
     // FORWARD PROP FIRST
+	time(&start);
     int p = forwardProp(x,1,1,0);   // p is the predict value
+	time(&stop); btime0_all += difftime(stop, start);
     if (p==-1) return -1; // GRADIENT EXPLODED
     // CORRECT PREDICTION?
     int y;
@@ -884,6 +899,7 @@ int backProp(int x, float *ent, int ep){  // ANDY
         }
     }
     // HIDDEN LAYERS - CALCULATE ERRORS
+	time(&start);
     for (k=8;k>10-numLayers;k--){
     if (layerType[k+1]==0) // FEEDS INTO FULLY CONNECTED
     for (i=0;i<layerSizes[k]*layerChan[k];i++){
@@ -898,8 +914,10 @@ int backProp(int x, float *ent, int ep){  // ANDY
         }
     }
     }
+	time(&stop); btime1_all += difftime(stop, start);
     
     // UPDATE WEIGHTS - GRADIENT DESCENT
+	time(&start);
     int count = 0;
     for (k=11-numLayers;k<10;k++){
     if (layerType[k]==0){ // FULLY CONNECTED LAYER
@@ -910,7 +928,8 @@ int backProp(int x, float *ent, int ep){  // ANDY
         }
     }
     }
-    
+	time(&stop); btime2_all += difftime(stop, start);
+    btime_cnt++; 
     return r;
 }
 
@@ -924,13 +943,17 @@ int forwardProp(int x, int dp, int train, int lay){ // ANDY
     int a, a2, i2, j2, i3, j3;
     float sum, esum, max, rnd, pmax;
     int temp, temp2;
-    // INPUT LAYER
+    time_t start,stop;
+	
+    // INPUT LAYER (input_layer = 10-numLayers)  ==> assign image, accept input
     if (isDigits(inited)==1 && layerSizes[10-numLayers]==784){
         if (train==1) for (i=0;i<784;i++) layers[10-numLayers][i] = trainImages[x][i];   // input layer 28x28-> 784
         else for (i=0;i<784;i++) layers[10-numLayers][i] = testImages[x][i];
     }
     
+    // input_layer+1 = 10-numLayers+1 = 11-numLayers, output_layer = 9	
     // HIDDEN LAYERS - k=input+1,k<output;k++ 
+	time(&start);  
     for (k=11-numLayers;k<9;k++){
         if (lay!=0 && k>lay) return -1;
     // CALCULATE DROPOUT
@@ -942,14 +965,25 @@ int forwardProp(int x, int dp, int train, int lay){ // ANDY
             if (rnd<dropOutRatio) dropOut[k][i] = 0;
         }
     }
-    
+   
+   // 	
     if (layerType[k]==0) // FULLY CONNECTED LAYER
     for (i=0;i<layerSizes[k];i++){
         if (dropOutRatio==0.0 || dp==0 || DOdense==0 || dropOut[k][i]==1){
             temp = i*(layerSizes[k-1]*layerChan[k-1]+1); //starting weights for each node
             sum = 0.0;
+			// https://stackoverflow.com/questions/16272384/parallel-sum-of-elements-in-a-large-array  -2013
+			/** Need Par START
             for (j=0;j<layerSizes[k-1]*layerChan[k-1]+1;j++)
                 sum += layers[k-1][j]*weights[k][temp+j]; // Sum(all weights)
+			    Need Par END **/
+			/*  C++17 case, don't know how to solve the sum/reduce in C++17 without too-ugly baked cods
+			auto J = interval(0, layerSizes[k-1]*layerChan[k-1]+1);
+			std::for_each(std::par, J.begin(), J.end(), [=](int j) {
+							}); */
+            for (j=0;j<layerSizes[k-1]*layerChan[k-1]+1;j++)
+                sum += layers[k-1][j]*weights[k][temp+j]; // Sum(all weights)
+
             if (activation==0) layers[k][i] = sum;
             else if (activation==1) layers[k][i] = ReLU(sum); // activation(layers[k][i]) node
             else layers[k][i] = TanH(sum);
@@ -958,7 +992,15 @@ int forwardProp(int x, int dp, int train, int lay){ // ANDY
         }
         else layers[k][i] = 0.0;
     }
+
 	}
+	time(&stop); 
+	ftime_all += difftime(stop, start);
+	ftime_cnt ++;
+	//- so all nodes in hidden layers store the temporary/intermediate values which will be thrown away.
+	// so the nodes are useless and the 'weights' are the 'memories' which are just bunch of 'trained' parameters to 'fit' the training set.
+	// this model in logic is wrong. it is just a toy and it should be called 'deep fitting' not 'learning'. 
+
 
     // OUTPUT LAYER - SOFTMAX ACTIVATION
     esum = 0.0;
@@ -1007,7 +1049,7 @@ int main(int argc, char** argv)
 {
     load_data();
     init_net();
-    train();
+    train_and_validate();
     while(1) sleep(5);
  	return 0;
 }

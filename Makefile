@@ -1,5 +1,7 @@
 all: test train.csv test.csv
 
+%.o: %.c
+	g++ -g -c $<
 %.o: %.cpp
 	g++ -g -c $<
 test: test.o
@@ -29,3 +31,7 @@ vncsrv1: vncsrv1.o
 	g++ -o $@ $< -lvncserver 
 tests1: tests1.o
 	g++ -o $@ $<  -lpthread
+tpnc: test_pthncore.o
+	g++ -o $@ $<  -lpthread
+testpp: testpp.o pthpool.o
+	g++ -o $@ $^  -lpthread
