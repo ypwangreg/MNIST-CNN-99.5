@@ -31,6 +31,9 @@ vncsrv1: vncsrv1.o
 	g++ -o $@ $< -lvncserver 
 tests1: tests1.o
 	g++ -o $@ $<  -lpthread
+#  sudo apt install libtbb-dev
+tests2: tests2.cpp
+	g++ -std=c++17 -o $@ $<  -lpthread -ltbb
 tpnc: test_pthncore.o
 	g++ -o $@ $<  -lpthread
 testpp: testpp.o pthpool.o

@@ -5,6 +5,8 @@
 #include <sstream>
 #include <map>
 using namespace std;
+#include <algorithm>
+#include <execution>
 
 #include "rapidcsv.h"
 
@@ -121,7 +123,7 @@ char nets[8][10][20] =
            {"","784","C3:10","C3:10","P2","C3:20","C3:20","P2","128","10"},
 		   //layer-9: 4-86.5, 5-89.5, 6-90.85, 7-90.75, 8-92.50, 9-92.65, 10-93, 15-94.64, 30-96, 48-96.67, 72-96.93, 
 		   //98-97.27, 127-97.37, 256-97.46, 512-97.55
-           {"","","","","","","","784","5000","10"}, 
+           {"","","","","","","","784","500","10"}, 
            // debug nets below
            {"","","","","","784","C5:6","P2","50","10"},
            {"","","","","","","","196","100","10"},
@@ -179,10 +181,10 @@ double rpGet(string key) {
 	double f = 0.0; char* end; f = strtof(value.c_str(), &end);
 	return f;
 }
-char empty[2] = {0,0};
+char emptystr[2] = {0,0};
 const char* spGet(const char* key) {
 	if (parms.count(key)) return parms[key].c_str();
-	else return empty;
+	else return emptystr;
 }
 void spSet(char* key, char* value) {
 	parms[key] = value;
@@ -865,6 +867,22 @@ bool slowmotion = false;
 #define SLOW(X) { if(slowmotion){ printf X; getchar(); }}
 #define SLOW2(X){  printf X; getchar(); }
 
+void backProp_inner2(int k) {
+        for (i=0;i<layerSizes[k];i++){
+            int temp = i*(layerSizes[k-1]*layerChan[k-1]+1);
+            for (j=0;j<layerSizes[k-1]*layerChan[k-1]+1;j++)
+                weights[k][temp+j] += errors[k][i]*layers[k-1][j];   // adjust the weights by Delta_E.. enhance the correct weights on the path and decrease the weights on others..
+        }
+}
+void backProp_inner2_par(int k) {
+	std::vector<int> I(layerSizes[k]);
+	std::iota(std::begin(I), std::end(I), 0); 	
+	std::for_each(std::execution::par, I.begin(), I.end(), [=](int i) {
+            int temp = i*(layerSizes[k-1]*layerChan[k-1]+1);
+            for (j=0;j<layerSizes[k-1]*layerChan[k-1]+1;j++)
+                weights[k][temp+j] += errors[k][i]*layers[k-1][j];   // adjust the weights by Delta_E.. enhance the correct weights on the path and decrease the weights on others..
+    });
+}
 /**********************************************************************/
 /*      NEURAL NETWORK                                                */
 /*  x- image index, ent- entopy, ep- epoch number                     */
@@ -921,11 +939,13 @@ int backProp(int x, float *ent, int ep){  // ANDY
     int count = 0;
     for (k=11-numLayers;k<10;k++){
     if (layerType[k]==0){ // FULLY CONNECTED LAYER
+		backProp_inner2(k);
+			/*
         for (i=0;i<layerSizes[k];i++){
             temp = i*(layerSizes[k-1]*layerChan[k-1]+1);
             for (j=0;j<layerSizes[k-1]*layerChan[k-1]+1;j++)
                 weights[k][temp+j] += errors[k][i]*layers[k-1][j];   // adjust the weights by Delta_E.. enhance the correct weights on the path and decrease the weights on others..
-        }
+        }*/
     }
     }
 	time(&stop); btime2_all += difftime(stop, start);
@@ -933,11 +953,34 @@ int backProp(int x, float *ent, int ep){  // ANDY
     return r;
 }
 
+
 // https://stackoverflow.com/questions/16272384/parallel-sum-of-elements-in-a-large-array  -2013
 /*auto J = interval(0, layerSizes[k-1]*layerChan[k-1]+1);
 	std::for_each(std::par, J.begin(), J.end(), [=](int j) {
 	}); */
 
+void forwardProp_inner_par(int k, int dp) {
+    //auto I = interval(0, layerSizes[k]);
+	//std::for_each(std::execution::par, I.begin(), I.end(), [=](int i) {
+	std::vector<int> I(layerSizes[k]);
+	std::iota(std::begin(I), std::end(I), 0); 	
+	std::for_each(std::execution::par, I.begin(), I.end(), [=](int i) {
+        if (dropOutRatio==0.0 || dp==0 || DOdense==0 || dropOut[k][i]==1){
+            int temp = i*(layerSizes[k-1]*layerChan[k-1]+1); //starting weights for each node
+            float sum = 0.0;
+            for (j=0;j<layerSizes[k-1]*layerChan[k-1]+1;j++)
+                sum += layers[k-1][j]*weights[k][temp+j]; // Sum(all weights)
+
+            if (activation==0) layers[k][i] = sum;
+            else if (activation==1) layers[k][i] = ReLU(sum); // activation(layers[k][i]) node
+            else layers[k][i] = TanH(sum);
+            //if (dropOutRatio>0.0 && dp==1) layers[k][i] = layers[k][i]  / (1-dropOutRatio);
+            if (dropOutRatio>0.0 && dp==0 && DOdense==1) layers[k][i] = layers[k][i]  * (1-dropOutRatio);
+        }
+        else layers[k][i] = 0.0;
+
+	}); 
+}
 void forwardProp_inner1(int k, int dp, int temp, float sum) {
     for (i=0;i<layerSizes[k];i++){
         if (dropOutRatio==0.0 || dp==0 || DOdense==0 || dropOut[k][i]==1){
@@ -992,7 +1035,7 @@ int forwardProp(int x, int dp, int train, int lay){ // ANDY
    
    // 	
     if (layerType[k]==0) // FULLY CONNECTED LAYER
-		forwardProp_inner1(k, dp, temp, sum);
+		forwardProp_inner_par(k, dp);
 	}
 	time(&stop); 
 	ftime_all += difftime(stop, start);
